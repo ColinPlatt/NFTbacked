@@ -18,7 +18,7 @@ interface IERC20 {
 
     function mint(address to, uint256 amt) external;
 
-    function burn(address from, uint256 amt) external;
+    function burn(uint256 amt) external;
 }
 
 contract LendingVault {
@@ -51,16 +51,16 @@ contract LendingVault {
 
     constructor(
         address _usdc,
-        address _lToken
-        //address _nftVault
+        address _lToken,
+        address _nftVault
         ) {
             usdc = IERC20(_usdc);
             lToken = IERC20(_lToken);
-            //nftVault = _nftVault;
+            nftVault = _nftVault;
         }
 
     modifier onlyNftVault() {
-        require(msg.sender == nftVault, "LendingVault: NOT_AUTHORIZED");
+        require(msg.sender == nftVault, "LendingVault: not NFT vault");
         _;
     }
 
@@ -144,12 +144,13 @@ contract LendingVault {
 
     }
 
-    /*
-    function receiveInterest(uint256 amt) public onlyNftVault {
-        usdc.transferFrom(nftVault, address(this), amt);
-        accruedInterest += amt;
+    function withdrawLendAmount(address user, uint256 amt) public onlyNftVault {
+        usdc.transfer(user, amt);
     }
-    */
+
+    function returnLendAmount(uint256 amt) public onlyNftVault {
+        usdc.transferFrom(nftVault, address(this), amt);
+    }
 
     function reducePrincipal(address _user, uint256 amt) public onlyNftVault {
         LenderInfo storage user = lendersInfo[_user];

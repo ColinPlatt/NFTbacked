@@ -16,8 +16,8 @@ contract lendToken is ERC20, Ownable {
         _mint(to, amt);
     }
 
-    function burn(address from, uint256 amt) public onlyOwner {
-        _burn(from, amt);
+    function burn(uint256 amt) public {
+        _burn(msg.sender, amt);
     }
 
 }

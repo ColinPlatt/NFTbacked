@@ -21,7 +21,7 @@ contract LendingVaultTest is DSTest {
 
         lToken = new lendToken();
 
-        vault = new LendingVault(address(usdc), address(lToken));
+        vault = new LendingVault(address(usdc), address(lToken), address(0xBEEF));
         lToken.transferOwnership(address(vault));
     }
 
@@ -48,11 +48,6 @@ contract LendingVaultTest is DSTest {
         assertEq(vault.userPrincipal(), 0);
         assertEq(usdc.balanceOf(address(this)), 1000**6);
 
-    }
-
-    function _testMint() public {
-        vault.testMinting();
-        assertEq(lToken.totalSupply(),10);
     }
 
     function testPendingDeposit() public {
