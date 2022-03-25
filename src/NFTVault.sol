@@ -21,6 +21,8 @@ interface ILendingVault {
     function withdrawLendAmount(address user, uint256 amt) external;
 
     function returnLendAmount(uint256 amt) external;
+
+    function reducePrincipal(address _user, uint256 amt) external;
 }
 
 contract NFTVault is ERC721TokenReceiver, Ownable {
@@ -64,7 +66,7 @@ contract NFTVault is ERC721TokenReceiver, Ownable {
         address _lToken,
         address _nftCollection
         ){
-            lToken = IERC20(lToken);
+            lToken = IERC20(_lToken);
             nftCollection = IERC721(_nftCollection);
         }
 
@@ -171,7 +173,41 @@ contract NFTVault is ERC721TokenReceiver, Ownable {
         return totalDebt > FLOOR_PRICE/2 ? true : false;
     }
 
-    // Need to include the logic to look at the LendingVault for the size of bid a user can place
+    function declareDefault(uint256 id) public {
+        require(!isSolvent(id), "NFTVault: Borrower is Solvent");
+
+        // find highest bid
+        BidInfo storage bestBid = highestBids[id];
+
+        // reduce bidder's USDC principal
+        lendingVault.reducePrincipal(bestBid.user, bestBid.bidPrice);
+
+        // transfer NFT to highest bidder
+        nftCollection.safeTransferFrom(address(this), bestBid.user, id);
+
+        // log default against the borrower (handle if they have other outstanding)
+        NFTInfo storage loanInfo = nftInfo[id];
+        DefaultInfo storage debtorInfo = defaultInfo[loanInfo.depositor];
+
+        // once a default happens we book a default event against the borrower, if there are already outstanding unpaid lToken debts, we add this to it 
+        if(bestBid.bidPrice >= loanInfo.borrowAmt) {
+            debtorInfo.excessUSDCDue += bestBid.bidPrice - loanInfo.borrowAmt;
+            debtorInfo.outstandingLTokens += interestDue(id);
+        } else {
+            debtorInfo.outstandingLTokens += interestDue(id);
+        }
+
+        // reset the bid to zero
+        nftInfo[id] = NFTInfo({
+            depositor: address(0),
+            borrowAmt: 0,
+            lastPaid: 0
+        });
+
+    }
+
+
+    // @TODO: Need to include the logic to look at the LendingVault for the size of bid a user can place
 
     // If a new bid is the highest bid then we replace the existing highest bid with this bid
     function enterNewBid(uint256 id, uint256 _bidPrice) public {
@@ -198,9 +234,5 @@ contract NFTVault is ERC721TokenReceiver, Ownable {
             bidAccepted: block.timestamp
         });
     }
-    
-
-    
-
 
 }
