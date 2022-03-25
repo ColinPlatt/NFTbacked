@@ -5,7 +5,7 @@ import "solmate/tokens/erc20.sol";
 
 contract mockUSDC is ERC20 {
 
-    constructor() ERC20("mockUSDC", "mUSDC", 18){}
+    constructor() ERC20("mockUSDC", "mUSDC", 6){}
 
     function mint(uint256 amt) public {
         _mint(msg.sender, amt);
