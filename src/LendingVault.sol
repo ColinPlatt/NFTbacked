@@ -29,23 +29,25 @@ contract LendingVault {
     IERC20 public lToken;
     address public nftVault;
 
-    uint128 public accLTokenPerShare;
-    uint64 public lastRewardTime;       
+    uint128 public accLTokenPerShare;   
 
-    uint256 constant BASE_REWARD_RATE = 5;
-    uint256 constant ACC_PRECISION = 1e12;
+    uint256 constant BASE_REWARD_RATE = 2_500_000;
+    uint256 constant ACC_PRECISION = 1;
     //uint256 constant ACTIVE_REWARD_RATE = 2;
 
     struct LenderInfo {
         uint256 principal;
         uint256 rewardDebt;
         uint256 bidAmount;
+        uint64 lastRewardTime;
     }
 
     mapping(address => LenderInfo) public lendersInfo;
 
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
+    event log(string output);
+    event log_uint(uint output);
 
     constructor(
         address _usdc,
@@ -62,20 +64,25 @@ contract LendingVault {
         _;
     }
 
+    function userLastUpdate() public view returns (uint256 lastUpdate) {
+        return lendersInfo[msg.sender].lastRewardTime;
+    }
+
+    function userLastUpdate(address _user) public view returns (uint256 lastUpdate) {
+        return lendersInfo[_user].lastRewardTime;
+    }
+
     function userInterest(address _user) public view returns (uint256 pending) {
         LenderInfo storage user = lendersInfo[_user];
 
         uint256 vaultBalance = usdc.balanceOf(address(this));
-        uint128 _accLTokenPerShare;
 
-        if (block.timestamp > lastRewardTime && vaultBalance != 0) {
-            uint256 time = block.timestamp - lastRewardTime;
-            uint256 lReward = time * BASE_REWARD_RATE;
-            _accLTokenPerShare += ((lReward * ACC_PRECISION) / vaultBalance).safeCastTo128();
+        uint256 lReward;
+        if (block.timestamp > user.lastRewardTime && vaultBalance != 0) {
+            uint256 time = block.timestamp - user.lastRewardTime;
+            lReward = time * BASE_REWARD_RATE;
         }
-        pending = int256(user.principal * (_accLTokenPerShare / ACC_PRECISION) - user.rewardDebt).toUInt256();
-
-
+        pending = int256(((user.principal * lReward) / ACC_PRECISION) - user.rewardDebt).toUInt256();
     }
 
     function userPrincipal() public view returns (uint256 balance) {
@@ -91,16 +98,18 @@ contract LendingVault {
     }
 
     function deposit(uint256 amt) public {
-        // for the first depositor we can start the reward counter
-        if(lastRewardTime == 0){
-            block.timestamp.safeCastTo64();
-        }
 
         LenderInfo storage user = lendersInfo[msg.sender];
 
         // implement logic for holdings of accrued interest
-        if (user.principal > 0) {
-
+        if (user.principal > 0 || user.lastRewardTime == 0) {
+            uint256 pendingLToken =  userInterest(msg.sender);
+            user.lastRewardTime = block.timestamp.safeCastTo64();
+            if(pendingLToken > 0) {
+                user.rewardDebt += pendingLToken;
+                emit log_uint(pendingLToken);
+                lToken.mint(msg.sender, pendingLToken);
+            }
         }
         usdc.transferFrom(
             address(msg.sender),
@@ -116,6 +125,14 @@ contract LendingVault {
     function withdraw(uint256 amt) public {
         LenderInfo storage user = lendersInfo[msg.sender];
         require(user.principal >= amt, "LendingVault: WITHDRAW_FAILED");
+
+        uint256 pendingLToken =  userInterest(msg.sender);
+        user.lastRewardTime = block.timestamp.safeCastTo64();
+        if(pendingLToken > 0) {
+            user.rewardDebt += pendingLToken;
+            emit log_uint(pendingLToken);
+            lToken.mint(msg.sender, pendingLToken);
+        }
 
         user.principal -= amt;
         usdc.transfer(
@@ -140,7 +157,6 @@ contract LendingVault {
 
         user.principal -= amt;
     }
-
 
 }
 
