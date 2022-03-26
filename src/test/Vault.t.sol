@@ -250,11 +250,109 @@ contract VaultTest is DSTest, ERC721TokenReceiver {
         assertEq(nftCollection.ownerOf(0), address(this));
     }
 
-}
+    function testNewBid() public {
+        usdc.approve(address(vault), 1000*DECIMALS);
+        vault.lenderDeposit(1000*DECIMALS);
 
-// test enter new bid
-// test modify bid
-// test modify bid Fail
-// test bid too much
-// test bid too low Fail
-// test withdraw no liquidity
+        // value floor NFT at 1000, and allow 20% LTV max 
+        vault.setBorrowParameters(20, 100*DECIMALS);
+
+        // mint NFT ID 0, approve and transfer to the vault
+        nftCollection.mint(address(0xBEEF),0);
+
+        //change to a new address to deposit NFT and borrow
+        cheats.startPrank(address(0xBEEF));
+        nftCollection.setApprovalForAll(address(vault), true);
+        nftCollection.safeTransferFrom(address(0xBEEF), address(vault), 0);
+
+        vault.borrowerStartBorrowing(0, 20*DECIMALS);
+
+        cheats.stopPrank();
+
+        vault.enterNewBid(0, 21*DECIMALS);
+
+        cheats.warp(block.timestamp + 1 hours);
+
+        vault.enterNewBid(0, 22*DECIMALS);
+
+    }
+
+    function testBidChangeFail() public {
+        usdc.approve(address(vault), 1000*DECIMALS);
+        vault.lenderDeposit(1000*DECIMALS);
+
+        // value floor NFT at 1000, and allow 20% LTV max 
+        vault.setBorrowParameters(20, 100*DECIMALS);
+
+        // mint NFT ID 0, approve and transfer to the vault
+        nftCollection.mint(address(0xBEEF),0);
+
+        //change to a new address to deposit NFT and borrow
+        cheats.startPrank(address(0xBEEF));
+        nftCollection.setApprovalForAll(address(vault), true);
+        nftCollection.safeTransferFrom(address(0xBEEF), address(vault), 0);
+
+        vault.borrowerStartBorrowing(0, 20*DECIMALS);
+
+        cheats.stopPrank();
+
+        vault.enterNewBid(0, 21*DECIMALS);
+
+        cheats.warp(block.timestamp + 1 hours);
+
+        cheats.expectRevert(bytes("NFTVault: Not highest bid"));
+        vault.enterNewBid(0, 20*DECIMALS);
+
+        cheats.expectRevert(bytes("NFTVault: Cannot modify bid yet"));
+        vault.modifyBid(0, 20*DECIMALS);
+
+        cheats.warp(block.timestamp + 24 hours);
+        vault.modifyBid(0, 20*DECIMALS);
+
+        cheats.warp(block.timestamp + 25 hours);
+        vault.modifyBid(0, 27*DECIMALS);
+
+        // this is allowed as we've not implemented the logic to check a minimum bid price
+        cheats.warp(block.timestamp + 25 hours);
+        vault.modifyBid(0, 19*DECIMALS);
+
+        cheats.warp(block.timestamp + 25 hours);
+        cheats.expectRevert(bytes("insufficient free bid capacity"));
+        vault.modifyBid(0, 1001*DECIMALS);
+
+    }
+
+    function testBidAndWithdrawRevert() public {
+        usdc.approve(address(vault), 1000*DECIMALS);
+        vault.lenderDeposit(1000*DECIMALS);
+
+        // value floor NFT at 1000, and allow 20% LTV max 
+        vault.setBorrowParameters(20, 100*DECIMALS);
+
+        // mint NFT ID 0, approve and transfer to the vault
+        nftCollection.mint(address(0xBEEF),0);
+
+        //change to a new address to deposit NFT and borrow
+        cheats.startPrank(address(0xBEEF));
+        nftCollection.setApprovalForAll(address(vault), true);
+        nftCollection.safeTransferFrom(address(0xBEEF), address(vault), 0);
+
+        vault.borrowerStartBorrowing(0, 20*DECIMALS);
+
+        cheats.stopPrank();
+
+        vault.enterNewBid(0, 21*DECIMALS);
+
+        cheats.warp(block.timestamp + 1 hours);
+
+        // this will pass
+        vault.lenderWithdraw(800*DECIMALS);
+
+        // this should revert
+        cheats.warp(block.timestamp + 1 hours);
+        cheats.expectRevert(bytes("LendingVault: WITHDRAW_FAILED"));
+        vault.lenderWithdraw(190*DECIMALS);
+
+    }
+
+}

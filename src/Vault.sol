@@ -175,7 +175,7 @@ contract Vault is ERC721TokenReceiver, Ownable {
 
     function lenderWithdraw(uint256 amt) public {
         LenderInfo storage user = lendersInfo[msg.sender];
-        require(user.principal >= amt, "LendingVault: WITHDRAW_FAILED");
+        require((user.principal - user.bidAmount) >= amt, "LendingVault: WITHDRAW_FAILED");
 
         uint256 pendingLToken =  lenderInterest(msg.sender);
         user.lastRewardTime = block.timestamp.safeCastTo64();
@@ -209,7 +209,6 @@ contract Vault is ERC721TokenReceiver, Ownable {
         usdc.transferFrom(msg.sender, address(this), amt);
     }
 
-    // TODO: make internal
     function lenderReducePrincipal(address _user, uint256 amt) internal {
         LenderInfo storage user = lendersInfo[_user];
         require(user.principal >= amt, "LendingVault: PRINCIPAL_REDUCE_FAILED");
@@ -359,19 +358,11 @@ contract Vault is ERC721TokenReceiver, Ownable {
                 lastPaid: 0
             });
 
-
-
-
-
         }
-
-
-        
 
     }
 
-
-    // @TODO: Need to include the logic to look at the LendingVault for the size of bid a user can place
+    // TODO: Implement logic to enforce bidding should be above outstanding loan size
 
     // If a new bid is the highest bid then we replace the existing highest bid with this bid
     function enterNewBid(uint256 id, uint256 _bidPrice) public {
