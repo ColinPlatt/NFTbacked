@@ -39,8 +39,9 @@ contract Vault is ERC721TokenReceiver, Ownable {
     uint256 public MAX_LTV;
     uint256 public FLOOR_PRICE;
 
-    uint256 constant BASE_REWARD_RATE = 2_500_000;
-    uint256 constant INTEREST_RATE = 3_500_000;
+    uint256 constant BASE_REWARD_RATE = 25;
+    uint256 constant INTEREST_RATE = 30;
+    uint256 constant PRECISION = 10**8;
 
     uint256 constant MIN_BID_DURATION = 1 days;
 
@@ -90,6 +91,8 @@ contract Vault is ERC721TokenReceiver, Ownable {
     // TODO: temp for testing, remove
     event log(string output);
     event log_uint(uint output);
+    event log_address(address output);
+    event log_bytes(bytes output);
 
     constructor(
         address _usdc,
@@ -107,9 +110,11 @@ contract Vault is ERC721TokenReceiver, Ownable {
         uint256 _id,
         bytes calldata _data
     ) public virtual override returns (bytes4) {
+        require(_operator == _from, "Vault: operator is not from");
+        emit log_bytes(_data); // maybe add a safe check that requires user to input something in data
         NFTInfo storage idInfo = nftInfo[_id];
         idInfo.depositor = _from;
-        // add a safe check that requires user to input something in data
+        
 
         return ERC721TokenReceiver.onERC721Received.selector;
     }
@@ -130,7 +135,7 @@ contract Vault is ERC721TokenReceiver, Ownable {
             uint256 time = block.timestamp - user.lastRewardTime;
             lReward = time * BASE_REWARD_RATE;
         }
-        pending = int256((user.principal * lReward) - user.rewardDebt).toUInt256();
+        pending = int256(((user.principal * lReward) / PRECISION) - user.rewardDebt).toUInt256();
     }
 
     function lenderPrincipal() public view returns (uint256 balance) {
@@ -154,7 +159,7 @@ contract Vault is ERC721TokenReceiver, Ownable {
             user.lastRewardTime = block.timestamp.safeCastTo64();
             if(pendingLToken > 0) {
                 user.rewardDebt += pendingLToken;
-                emit log_uint(pendingLToken);
+                //emit log_uint(pendingLToken);
                 lToken.mint(msg.sender, pendingLToken);
             }
         }
@@ -237,13 +242,13 @@ contract Vault is ERC721TokenReceiver, Ownable {
         NFTInfo storage idInfo = nftInfo[id];
         if(idInfo.borrowAmt != 0 && block.timestamp > idInfo.lastPaid) {
             uint256 time = block.timestamp - idInfo.lastPaid;
-            uint256 lDue = time * INTEREST_RATE * idInfo.borrowAmt;
+            uint256 lDue = ((time * INTEREST_RATE) * idInfo.borrowAmt) / (PRECISION*100);
             return lDue;
         }
         return 0;
     }
 
-    function payLTokenDebt(uint256 id) internal {
+    function payLTokenDebt(uint256 id) public {
         NFTInfo storage idInfo = nftInfo[id];
 
         uint256 _lTokenOwed = interestDue(id);
@@ -286,16 +291,16 @@ contract Vault is ERC721TokenReceiver, Ownable {
     }
 
 
-    // we define solvency as a loan where the lToken owed + principal does not exceed 50% of the FLOOR_PRICE.
+    // we define solvency as a loan where the lToken owed + principal does not exceed 33% of the FLOOR_PRICE.
     // For simplicity 1 lToken = 1 USDC
     function isSolvent(uint256 id) public view returns (bool) {
         NFTInfo storage idInfo = nftInfo[id];
 
         uint256 _lTokenOwed = interestDue(id);
 
-        uint256 totalDebt = idInfo.borrowAmt + (_lTokenOwed / 10^12); // need to adjust lToken to calculate with 6 decimals
+        uint256 totalDebt = idInfo.borrowAmt + _lTokenOwed; // need to adjust lToken to calculate with 6 decimals
 
-        return totalDebt > FLOOR_PRICE/2 ? true : false;
+        return totalDebt > FLOOR_PRICE/3 ? false : true;
     }
 
     function declareDefault(uint256 id) public {
@@ -303,15 +308,9 @@ contract Vault is ERC721TokenReceiver, Ownable {
 
         // find highest bid
         BidInfo storage bestBid = highestBids[id];
-
-        // reduce bidder's USDC principal
-        lenderReducePrincipal(bestBid.user, bestBid.bidPrice);
-
-        // transfer NFT to highest bidder
-        nftCollection.safeTransferFrom(address(this), bestBid.user, id);
+        NFTInfo storage loanInfo = nftInfo[id];
 
         // log default against the borrower (handle if they have other outstanding)
-        NFTInfo storage loanInfo = nftInfo[id];
         DefaultInfo storage debtorInfo = defaultInfo[loanInfo.depositor];
 
         // once a default happens we book a default event against the borrower, if there are already outstanding unpaid lToken debts, we add this to it 
@@ -322,12 +321,52 @@ contract Vault is ERC721TokenReceiver, Ownable {
             debtorInfo.outstandingLTokens += interestDue(id);
         }
 
-        // reset the bid to zero
-        nftInfo[id] = NFTInfo({
-            depositor: address(0),
-            borrowAmt: 0,
-            lastPaid: 0
-        });
+        // check if there is a bidder, and if not retain NFT
+        if (bestBid.bidPrice != 0) {
+            // reduce bidder's USDC principal
+            lenderReducePrincipal(bestBid.user, bestBid.bidPrice);
+
+            // transfer NFT to highest bidder
+            nftCollection.safeTransferFrom(address(this), bestBid.user, id);
+
+            // reset the loan to zero
+            nftInfo[id] = NFTInfo({
+                depositor: address(0),
+                borrowAmt: 0,
+                lastPaid: 0
+            });
+
+            // reset the bid to zero
+            highestBids[id] = BidInfo({
+                user : address(0),
+                bidPrice : 0,
+                bidAccepted : 0
+            });
+
+
+        } else {
+            // set the bid to the loan amount and make depositor this contract
+            highestBids[id] = BidInfo({
+                user : address(this),
+                bidPrice : nftInfo[id].borrowAmt,
+                bidAccepted : 0
+            });
+            
+            // if no bidder active, swap the details to this contract
+            nftInfo[id] = NFTInfo({
+                depositor: address(this),
+                borrowAmt: 0,
+                lastPaid: 0
+            });
+
+
+
+
+
+        }
+
+
+        
 
     }
 
@@ -338,6 +377,37 @@ contract Vault is ERC721TokenReceiver, Ownable {
     function enterNewBid(uint256 id, uint256 _bidPrice) public {
         BidInfo storage idBid = highestBids[id];
         require(_bidPrice > idBid.bidPrice, "NFTVault: Not highest bid");
+
+        // need to check the user's free USDC balance
+        LenderInfo storage bidder = lendersInfo[msg.sender];
+        require((bidder.principal - bidder.bidAmount) >= _bidPrice, "insufficient free bid capacity");
+        
+        // add this bid to their bid amount
+        bidder.bidAmount += _bidPrice;
+
+        // check if this is a defaulted NFT owned by the Vault, if so transfer to the bidder and reduce their principal
+        if(idBid.user == address(this)) {
+            lenderReducePrincipal(msg.sender, _bidPrice);
+
+            // transfer NFT to bidder
+            nftCollection.safeTransferFrom(address(this), msg.sender, id);
+
+            // reset the loan to zero
+            nftInfo[id] = NFTInfo({
+                depositor: address(0),
+                borrowAmt: 0,
+                lastPaid: 0
+            });
+
+            // reset the bid to zero
+            highestBids[id] = BidInfo({
+                user : address(0),
+                bidPrice : 0,
+                bidAccepted : 0
+            });
+
+            return;
+        }
 
         highestBids[id] = BidInfo({
             user: msg.sender,
@@ -352,6 +422,19 @@ contract Vault is ERC721TokenReceiver, Ownable {
         BidInfo storage idBid = highestBids[id];
         require(idBid.user == msg.sender, "NFTVault: Unauthorised bid modifier");
         require(block.timestamp > idBid.bidAccepted + MIN_BID_DURATION, "NFTVault: Cannot modify bid yet");
+
+        // need to check the user's free USDC balance
+        LenderInfo storage bidder = lendersInfo[msg.sender];
+
+        // check if the new bid is higher or lower than the existing bid and adjust bid tracker in lender profile
+        if(newBidPrice > idBid.bidPrice) {
+            require((bidder.principal - bidder.bidAmount) >= newBidPrice, "insufficient free bid capacity");
+        
+            // add this bid to their bid amount
+            bidder.bidAmount += newBidPrice;
+        } else {
+            bidder.bidAmount -= idBid.bidPrice-newBidPrice;
+        }
 
         highestBids[id] = BidInfo({
             user: msg.sender,

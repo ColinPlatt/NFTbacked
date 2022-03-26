@@ -5,26 +5,44 @@ import "ds-test/test.sol";
 import "./CheatCodes.sol";
 
 import {mockUSDC} from "../mockUSDC.sol";
-import {mockERC721} from "../mockERC721.sol";
+import {mockHopper} from "../mockHopper.sol";
 import {lendToken} from "../lendToken.sol";
 
 import {Vault} from "../Vault.sol";
 
-contract VaultTest is DSTest {
+import {ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
+
+contract VaultTest is DSTest, ERC721TokenReceiver {
     CheatCodes cheats = CheatCodes(HEVM_ADDRESS);
+
+    uint256 constant DECIMALS = 10**18;
 
     mockUSDC usdc;
     lendToken lToken;
     Vault vault;
-    mockERC721 nftCollection;
+    mockHopper nftCollection;
+
+    function onERC721Received(
+        address _operator,
+        address _from,
+        uint256 _id,
+        bytes calldata _data
+    ) public virtual override returns (bytes4) {
+        abi.encodePacked(_operator, _from, _id, _data);
+
+        return ERC721TokenReceiver.onERC721Received.selector;
+    }
 
     function setUp() public {
         usdc = new mockUSDC();
-        usdc.mint(1000**6);
+        usdc.mint(1000*DECIMALS);
 
-        nftCollection = new mockERC721("expensive JPEGs", "JPEG");
+        nftCollection = new mockHopper();
 
         lToken = new lendToken();
+
+        // mint enough tokens for the borrowers to repay in the tests
+        lToken.mint(address(0xBEEF), 100*DECIMALS);
 
         vault = new Vault(address(usdc), address(lToken), address(nftCollection));
         lToken.transferOwnership(address(vault));
@@ -33,51 +51,52 @@ contract VaultTest is DSTest {
     function testInvariantMetaData() public {
         assertEq(usdc.name(), "mockUSDC");
         assertEq(usdc.symbol(), "mUSDC");
-        assertEq(usdc.decimals(), 6);
-        assertEq(usdc.balanceOf(address(this)), 1000**6);
+        assertEq(usdc.decimals(), 18);
+        assertEq(usdc.balanceOf(address(this)), 1000*DECIMALS);
 
         assertEq(lToken.name(), "lendToken");
         assertEq(lToken.symbol(), "lToken");
         assertEq(lToken.decimals(), 18);
 
-        assertEq(nftCollection.name(), "expensive JPEGs");
-        assertEq(nftCollection.symbol(), "JPEG");
+        assertEq(nftCollection.name(), "mock Hoppers");
+        assertEq(nftCollection.symbol(), "mHOP");
+        assertEq(nftCollection.tokenURI(0), "https://hoppersgame.io/api/uri/hopper/0");
     }
 
     function testVaultDeposit() public {
-        usdc.approve(address(vault), 1000**18);
+        usdc.approve(address(vault), 100_000*DECIMALS);
 
-        vault.lenderDeposit(10**6);
+        vault.lenderDeposit(10*DECIMALS);
 
-        assertEq(vault.lenderPrincipal(), 10**6);
+        assertEq(vault.lenderPrincipal(), 10*DECIMALS);
 
-        vault.lenderWithdraw(10**6);
+        vault.lenderWithdraw(10*DECIMALS);
 
         assertEq(vault.lenderPrincipal(), 0);
-        assertEq(usdc.balanceOf(address(this)), 1000**6);
+        assertEq(usdc.balanceOf(address(this)), 1000*DECIMALS);
 
     }
 
     function testPendingDeposit() public {
-        usdc.approve(address(vault), 1000**18);
+        usdc.approve(address(vault), 1000*DECIMALS);
 
         cheats.warp(block.timestamp + 1);
-        vault.lenderDeposit(10**6);
+        vault.lenderDeposit(10*DECIMALS);
 
-        cheats.warp(block.timestamp + 86400 * 365);
+        cheats.warp(block.timestamp + 365 days);
 
         assertEq(vault.lenderLastUpdate(address(this)),1);
         assertEq(vault.lenderInterest(address(this)),78_840_000_000_000_000_000);
 
         vault.lenderDeposit(0);
 
-        assertEq(lToken.totalSupply(),78_840_000_000_000_000_000);
+        assertEq(lToken.totalSupply(),178_840_000_000_000_000_000);
 
     }
 
     function testDepositNFT() public {
-        usdc.approve(address(vault), 1000**18);
-        vault.lenderDeposit(1000**6);
+        usdc.approve(address(vault), 1000*DECIMALS);
+        vault.lenderDeposit(1000*DECIMALS);
 
         // mint NFT ID 0, approve and transfer to the vault
         nftCollection.mint(0);
@@ -95,14 +114,11 @@ contract VaultTest is DSTest {
     }
 
     function testBorrowAgainstNFT() public {
-        usdc.approve(address(vault), 1000**18);
-        vault.lenderDeposit(1000**6);
+        usdc.approve(address(vault), 1000*DECIMALS);
+        vault.lenderDeposit(1000*DECIMALS);
 
         // value floor NFT at 1000, and allow 20% LTV max 
-        vault.setBorrowParameters(20, 1000**6);
-
-
-        
+        vault.setBorrowParameters(20, 100*DECIMALS);
 
         // mint NFT ID 0, approve and transfer to the vault
         nftCollection.mint(address(0xBEEF),0);
@@ -112,12 +128,133 @@ contract VaultTest is DSTest {
         nftCollection.setApprovalForAll(address(vault), true);
         nftCollection.safeTransferFrom(address(0xBEEF), address(vault), 0);
 
-        vault.borrowerStartBorrowing(0, 20**6);
+        vault.borrowerStartBorrowing(0, 20*DECIMALS);
 
-        assertEq(usdc.balanceOf(address(0xBEEF)), 20**6);
+        assertEq(usdc.balanceOf(address(0xBEEF)), 20*DECIMALS);
+
+        cheats.warp(block.timestamp + 365 days);
+
+        emit log("after one year:");
+        emit log_uint(vault.interestDue(0));
+        assertTrue(vault.isSolvent(0));
+
+        cheats.warp(block.timestamp + 3285 days);
+        
+        emit log("after 10 years:");
+        emit log_uint(vault.interestDue(0));
+        assertTrue(!vault.isSolvent(0));
 
     }
 
+    function testBorrowAndRepay() public {
+        usdc.approve(address(vault), 1000*DECIMALS);
+        vault.lenderDeposit(1000*DECIMALS);
 
+        // value floor NFT at 1000, and allow 20% LTV max 
+        vault.setBorrowParameters(20, 100*DECIMALS);       
+
+        // mint NFT ID 0, approve and transfer to the vault
+        nftCollection.mint(address(0xBEEF),0);
+
+        //change to a new address to deposit NFT and borrow
+        cheats.startPrank(address(0xBEEF));
+        nftCollection.setApprovalForAll(address(vault), true);
+        nftCollection.safeTransferFrom(address(0xBEEF), address(vault), 0);
+
+        vault.borrowerStartBorrowing(0, 20*DECIMALS);
+
+        assertEq(usdc.balanceOf(address(0xBEEF)), 20*DECIMALS);
+
+        cheats.warp(block.timestamp + 365 days);
+
+        emit log("after one year:");
+        emit log_uint(vault.interestDue(0));
+        assertTrue(vault.isSolvent(0));
+
+        lToken.approve(address(vault), 1000*DECIMALS);
+        vault.payLTokenDebt(0);
+        assertEq(vault.interestDue(0), 0);
+
+        cheats.warp(block.timestamp + 365 days);
+        usdc.approve(address(vault), 1000*DECIMALS);
+        vault.repayPrincipal(0, true);
+
+    }
+
+    function testBorrowAndDefaultNoBid() public {
+        usdc.approve(address(vault), 1000*DECIMALS);
+        vault.lenderDeposit(1000*DECIMALS);
+
+        // value floor NFT at 1000, and allow 20% LTV max 
+        vault.setBorrowParameters(20, 100*DECIMALS);
+
+        // mint NFT ID 0, approve and transfer to the vault
+        nftCollection.mint(address(0xBEEF),0);
+
+        //change to a new address to deposit NFT and borrow
+        cheats.startPrank(address(0xBEEF));
+        nftCollection.setApprovalForAll(address(vault), true);
+        nftCollection.safeTransferFrom(address(0xBEEF), address(vault), 0);
+
+        vault.borrowerStartBorrowing(0, 20*DECIMALS);
+
+        assertEq(usdc.balanceOf(address(0xBEEF)), 20*DECIMALS);
+
+        cheats.warp(block.timestamp + 3650 days);
+        
+        emit log("after 10 years:");
+        emit log_uint(vault.interestDue(0));
+        assertTrue(!vault.isSolvent(0));
+
+        cheats.stopPrank();
+
+        // come back to the lender
+        vault.declareDefault(0);
+
+        vault.enterNewBid(0, 21*DECIMALS);
+        assertEq(nftCollection.ownerOf(0), address(this));
+    }
+
+    function testBorrowAndDefaultWithBid() public {
+        usdc.approve(address(vault), 1000*DECIMALS);
+        vault.lenderDeposit(1000*DECIMALS);
+
+        // value floor NFT at 1000, and allow 20% LTV max 
+        vault.setBorrowParameters(20, 100*DECIMALS);
+
+        // mint NFT ID 0, approve and transfer to the vault
+        nftCollection.mint(address(0xBEEF),0);
+
+        //change to a new address to deposit NFT and borrow
+        cheats.startPrank(address(0xBEEF));
+        nftCollection.setApprovalForAll(address(vault), true);
+        nftCollection.safeTransferFrom(address(0xBEEF), address(vault), 0);
+
+        vault.borrowerStartBorrowing(0, 20*DECIMALS);
+
+        assertEq(usdc.balanceOf(address(0xBEEF)), 20*DECIMALS);
+
+        cheats.warp(block.timestamp + 3650 days);
+        
+        emit log("after 10 years:");
+        emit log_uint(vault.interestDue(0));
+        assertTrue(!vault.isSolvent(0));
+
+        cheats.stopPrank();
+
+        vault.enterNewBid(0, 21*DECIMALS);
+
+        // come back to the lender
+        vault.declareDefault(0);
+
+        assertEq(nftCollection.ownerOf(0), address(this));
+    }
 
 }
+
+// test enter new bid
+// test modify bid
+// test modify bid Fail
+// test bid too much
+// test bid too low Fail
+// test withdraw no liquidity
