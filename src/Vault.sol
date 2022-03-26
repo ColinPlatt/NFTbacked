@@ -24,9 +24,13 @@ interface IERC20 {
     function burn(uint256 amt) external;
 }
 
+/*
+  PLEASE FOR THE LOVE OF GOD DON'T PUT ANY REAL MONEY IN THIS. IT'S HIGHLY INSECURE.
+*/
+
 contract Vault is ERC721TokenReceiver, Ownable {
     using SafeCastLib for uint256;
-    using safeSigned for int256; // probably can remove
+    using safeSigned for int256;
 
     IERC20 public usdc;
     IERC20 public lToken;
@@ -60,7 +64,7 @@ contract Vault is ERC721TokenReceiver, Ownable {
     mapping(uint256 => BidInfo) public highestBids; 
 
     struct NFTInfo {
-        address lenderDepositor;
+        address depositor;
         uint256 borrowAmt;
         uint256 lastPaid;
     }
@@ -75,7 +79,6 @@ contract Vault is ERC721TokenReceiver, Ownable {
     }
 
     mapping(address => DefaultInfo) public defaultInfo;
-
 
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
@@ -105,7 +108,7 @@ contract Vault is ERC721TokenReceiver, Ownable {
         bytes calldata _data
     ) public virtual override returns (bytes4) {
         NFTInfo storage idInfo = nftInfo[_id];
-        idInfo.lenderDepositor = _from;
+        idInfo.depositor = _from;
         // add a safe check that requires user to input something in data
 
         return ERC721TokenReceiver.onERC721Received.selector;
@@ -185,6 +188,14 @@ contract Vault is ERC721TokenReceiver, Ownable {
 
     }
 
+    function nftInventory(uint256 id) public view returns (address depositor, uint256 borrowed, uint256 lastPayment) {
+       
+        depositor = nftInfo[id].depositor;
+        borrowed = nftInfo[id].borrowAmt;
+        lastPayment = nftInfo[id].lastPaid;
+
+    }
+
     function borrowerWithdrawLoan(address borrower, uint256 amt) internal  {
         usdc.transfer(borrower, amt);
     }
@@ -247,18 +258,18 @@ contract Vault is ERC721TokenReceiver, Ownable {
     function borrowerStartBorrowing(uint256 id, uint256 amt) public {
         require(viewBorrowCapacity(id) >= amt, "NFTVault: insufficient borrow capacity");
         NFTInfo storage idInfo = nftInfo[id];
-        require(idInfo.lenderDepositor == msg.sender, "NFTVault: not NFT owner");
+        require(idInfo.depositor == msg.sender, "NFTVault: not NFT owner");
 
         payLTokenDebt(id);
         
         idInfo.borrowAmt += amt;
-        borrowerWithdrawLoan(idInfo.lenderDepositor, amt);
+        borrowerWithdrawLoan(idInfo.depositor, amt);
 
     }
 
     function repayPrincipal(uint256 id, bool withdrawNFT) public {
         NFTInfo storage idInfo = nftInfo[id];
-        require(idInfo.lenderDepositor == msg.sender, "NFTVault: not NFT owner");
+        require(idInfo.depositor == msg.sender, "NFTVault: not NFT owner");
 
         payLTokenDebt(id);
 
@@ -266,9 +277,9 @@ contract Vault is ERC721TokenReceiver, Ownable {
         borrowerReturnLoan(idInfo.borrowAmt);
 
         if(withdrawNFT) {
-            nftCollection.safeTransferFrom(address(this), idInfo.lenderDepositor, id);
+            nftCollection.safeTransferFrom(address(this), idInfo.depositor, id);
             // might be able to leave this to reduce gas if a new lenderDepositor takes the NFT, but this is probably safer
-            idInfo.lenderDepositor = address(0);
+            idInfo.depositor = address(0);
         }
         
         idInfo.borrowAmt = 0;
@@ -301,7 +312,7 @@ contract Vault is ERC721TokenReceiver, Ownable {
 
         // log default against the borrower (handle if they have other outstanding)
         NFTInfo storage loanInfo = nftInfo[id];
-        DefaultInfo storage debtorInfo = defaultInfo[loanInfo.lenderDepositor];
+        DefaultInfo storage debtorInfo = defaultInfo[loanInfo.depositor];
 
         // once a default happens we book a default event against the borrower, if there are already outstanding unpaid lToken debts, we add this to it 
         if(bestBid.bidPrice >= loanInfo.borrowAmt) {
@@ -313,7 +324,7 @@ contract Vault is ERC721TokenReceiver, Ownable {
 
         // reset the bid to zero
         nftInfo[id] = NFTInfo({
-            lenderDepositor: address(0),
+            depositor: address(0),
             borrowAmt: 0,
             lastPaid: 0
         });

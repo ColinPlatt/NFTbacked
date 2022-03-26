@@ -75,6 +75,49 @@ contract VaultTest is DSTest {
 
     }
 
+    function testDepositNFT() public {
+        usdc.approve(address(vault), 1000**18);
+        vault.lenderDeposit(1000**6);
+
+        // mint NFT ID 0, approve and transfer to the vault
+        nftCollection.mint(0);
+        nftCollection.setApprovalForAll(address(vault), true);
+        nftCollection.safeTransferFrom(address(this), address(vault), 0);
+
+        assertEq(nftCollection.ownerOf(0), address(vault));
+
+
+        (address _depositor, uint256 _borrowed, uint256 _lastPayment) = vault.nftInventory(0);
+        assertEq(_depositor, address(this));
+        assertEq(_borrowed, 0);
+        assertEq(_lastPayment, 0);
+
+    }
+
+    function testBorrowAgainstNFT() public {
+        usdc.approve(address(vault), 1000**18);
+        vault.lenderDeposit(1000**6);
+
+        // value floor NFT at 1000, and allow 20% LTV max 
+        vault.setBorrowParameters(20, 1000**6);
+
+
+        
+
+        // mint NFT ID 0, approve and transfer to the vault
+        nftCollection.mint(address(0xBEEF),0);
+
+        //change to a new address to deposit NFT and borrow
+        cheats.startPrank(address(0xBEEF));
+        nftCollection.setApprovalForAll(address(vault), true);
+        nftCollection.safeTransferFrom(address(0xBEEF), address(vault), 0);
+
+        vault.borrowerStartBorrowing(0, 20**6);
+
+        assertEq(usdc.balanceOf(address(0xBEEF)), 20**6);
+
+    }
+
 
 
 }
