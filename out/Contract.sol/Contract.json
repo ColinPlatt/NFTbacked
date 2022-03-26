@@ -1,0 +1,13 @@
+{
+  "abi": [],
+  "bytecode": {
+    "object": "0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe6080604052600080fdfea26469706673582212207e54be692b5a705f4a10d4a24481f9e5bab8c78fdd82828dfeffef6ef52f745064736f6c634300080a0033",
+    "sourceMap": "64:20:1:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x6080604052600080fdfea26469706673582212207e54be692b5a705f4a10d4a24481f9e5bab8c78fdd82828dfeffef6ef52f745064736f6c634300080a0033",
+    "sourceMap": "64:20:1:-:0;;;;;",
+    "linkReferences": {}
+  }
+}
