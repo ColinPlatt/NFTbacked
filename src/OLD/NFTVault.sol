@@ -114,6 +114,7 @@ contract NFTVault is ERC721TokenReceiver, Ownable {
             uint256 lDue = time * INTEREST_RATE * idInfo.borrowAmt;
             return lDue;
         }
+        return 0;
     }
 
     function payLTokenDebt(uint256 id) internal {
