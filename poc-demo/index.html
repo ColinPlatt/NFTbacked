@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NFTBacked</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Roboto:ital,wght@0,500;0,700;1,500;1,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+    <div id="menu-wrapper" role="tablist" aria-orientation="vertical">
+        <a class="nav-link active" data-target="#tab-dashboard" type="button" role="tab">
+            Dashboard
+        </a>
+        <a class="nav-link" data-target="#tab-borrow" type="button" role="tab">
+            Borrow
+        </a>
+        <a class="nav-link" data-target="#tab-marketplace" type="button" role="tab">
+            Marketplace
+        </a>
+    </div>
+    <main>
+        <div class="container">
+            <div class="tab-content" id="tabContent">
+                <div class="tab-pane active" id="tab-dashboard" role="tabpanel" >
+                    <div class="step active">
+                        <div>
+                            <p>USDC APY 8%</p>
+                            <button class="step-button">Supply</button>
+
+                            <div class="legend">
+                                <p>Dashboard will show:</p>
+                                <ul>
+                                    <li>Vault current state (amount locked, loan health etc)</li>
+                                    <li>User's equity on the vault</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div>
+                            <p>DEPOSIT $USDC</p>
+                            <input type="range" min="1" step="0.1" max="1800.4" value="100">
+                            <br>
+                            <button class="step-button">confirm</button>
+
+                            <div class="legend">
+                                <p>UX for user to supply the vault with USDC</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div>
+                            <p><strong style="color:red;">1200</strong> Ltokens</p>
+                            <p>Currently earning <strong style="color:red;">8%</strong> APY</p>
+                            <br>
+                            <button class="">Claim Ltoken</button>
+                            <button class="">Withdraw $USDC</button>
+
+                            <div class="legend">
+                                <p>User can:</p>
+                                <ul>
+                                    <li>Claim deposited value + accrued interest</li>
+                                    <li>Withdraw USDC from Vault</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane" id="tab-borrow" role="tabpanel" >
+                    <div class="container">
+                        <div class="step active">
+                            <div>
+                                <h5>Your NFTs</h5>
+                                <div class="nft-grid">
+                                    <div class="nft-thumb">
+                                        <img src="img/dickie1.png">
+                                    </div>
+                                    <div class="nft-thumb">
+                                        <img src="img/dickie2.png">
+                                    </div>
+                                    <div class="nft-thumb">
+                                        <img src="img/dickie3.png">
+                                    </div>
+                                    <div class="nft-thumb">
+                                        <img src="img/dickie4.png">
+                                    </div>
+                                    <div class="nft-thumb">
+                                        <img src="img/dickie5.png">
+                                    </div>
+                                    <div class="nft-thumb">
+                                        <img src="img/dickie6.png">
+                                    </div>
+                                    <div class="nft-thumb">
+                                        <img src="img/dickie7.png">
+                                    </div>
+                                    <div class="nft-thumb">
+                                        <img src="img/dickie8.png">
+                                    </div>
+                                </div>
+                                <button class="step-button">confirm</button>
+
+                                <div class="legend">
+                                    <p>User selects NFT(s) to be locked in the NFT Vault as collateral for loan issuance.</p>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="step">
+                            <div>
+                                <label>
+                                    LTV
+                                    <input type="range" min="1" step="0.1" max="20" value="20" id="ltv-selection">
+                                </label>
+                                <label>
+                                    Interest
+                                    <input disabled type="text" value="9%">
+                                </label>
+                                <label>
+                                    You get <input disabled id="loan-amount" type="text" value="100"> $USDC
+                                </label>
+                                <br>
+                                <button class="step-button">Lock NFT</button>
+                                <div class="legend">
+                                    <p>User can pick an LTV % of his choice</p>
+                                    <p>The amount of $USDC received is based on the LTV % chosen by the user. </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div>
+                                <label>
+                                    Liquidation Price
+                                    <input disabled type="text" value="$180">
+                                </label>
+                                <label>
+                                    Amount to unlock
+                                    <input disabled type="text" value="$330">
+                                </label>
+                                <label>
+                                    Liquidation date
+                                    <input disabled type="text" value="28/06/2022">
+                                </label>
+                                <button class="step-button">Pay interest</button>
+                                <button class="">Withdraw $USDC</button>
+                                <button class="">End loan</button>
+
+                                <div class="legend">
+                                    <ul>
+                                        <li>Liq price: higher than LTV</li>
+                                        <li>Amount to unlock: remaining loan position + interest to pay in order to completely repay the loan &amp; unlock the NFT</li>
+                                    </ul>
+                                    <p style="font-style: italic">only [Pay interest] action modeled for proof of concept demo</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="step">
+                            <div>
+                                <label>
+                                    Ltoken
+                                    <input type="range" min="1" step="0.1" max="50" value="15">
+                                </label>
+                                <label>
+                                    Liquidation price
+                                    <input disabled type="text" value="$180">
+                                </label>
+                                <label>
+                                    Liquidation date
+                                    <input disabled type="text" value="28/06/2022">
+                                </label>
+                                <br>
+                                <button class="">Repay</button>
+                                <div class="legend">
+                                    <p>Ltoken = the interest to be paid so as to avoid Liquidation and extend the loan. </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane" id="tab-marketplace" role="tabpanel" >
+                    <div class="container">
+                        <div class="step active">
+                            <div>
+                                <h5>NFT Vault</h5>
+                                <div class="nft-grid">
+                                    <div class="nft-preview">
+                                        <img src="img/dickie1.png">
+                                        <button>OFFER</button>
+                                    </div>
+                                    <div class="nft-preview on-auction">
+                                        <img src="img/dickie2.png">
+                                        <button>BID</button>
+                                    </div>
+                                    <div class="nft-preview">
+                                        <img src="img/dickie3.png">
+                                        <button>OFFER</button>
+                                    </div>
+                                    <div class="nft-preview">
+                                        <img src="img/dickie4.png">
+                                        <button>OFFER</button>
+                                    </div>
+                                    <div class="nft-preview on-auction">
+                                        <img src="img/dickie5.png">
+                                        <button>BID</button>
+                                    </div>
+                                    <div class="nft-preview">
+                                        <img src="img/dickie6.png">
+                                        <button>OFFER</button>
+                                    </div>
+                                    <div class="nft-preview">
+                                        <img src="img/dickie7.png">
+                                        <button>OFFER</button>
+                                    </div>
+                                    <div class="nft-preview">
+                                        <img src="img/dickie8.png">
+                                        <button>OFFER</button>
+                                    </div>
+                                </div>
+                                <div class="legend">
+                                    <p>All NFTs deposited by borrowers. Anyone can make an offer on any NFT of an ongoing loan, or directly bid on an auction for an NFT of a loan that defaulted. </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <img src="img/dickie1.png" style="max-width: 250px;">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label>
+                                            MY BID $
+                                            <input type="number" min="161" max="1000" value="161">
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="row" style="text-align: left;">
+                                    <div class="col-md-12">
+                                        <p>Top Offer: <strong>$160</strong></p>
+                                        <p>Loan Health: <strong style="color:green;">15%</strong></p>
+                                    </div>
+                                    <hr>
+                                </div>
+                                <div class="row">
+                                    <h4>Offer History</h4>
+                                    <div class="col-md-12">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Wallet</th>
+                                                    <th>Price</th>
+                                                    <th>Date</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>0x...123</td>
+                                                    <td>$160</td>
+                                                    <td>27/03/2022 09:15</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>0x...abc</td>
+                                                    <td>$130</td>
+                                                    <td>27/03/2022 06:25</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <button class="step-button">BID</button>
+                                <div class="legend">
+                                    <p>Dashboard of single NFT</p>
+                                    <ul>
+                                        <li>Offer/bid history for this NFT</li>
+                                        <li>Loan health</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function(event) {
+
+            var tabs = document.querySelectorAll('#menu-wrapper > a.nav-link')
+            tabs.forEach(function (tab) {
+                tab.addEventListener('click', function (event) {
+                    document.querySelector('#menu-wrapper > a.nav-link.active').classList.remove('active')
+                    event.target.classList.add('active')
+                    activeTab = document.querySelector('.tab-pane.active')
+                    activeTab.classList.remove('active');
+                    targetTab = document.querySelector(event.target.dataset.target);
+                    targetTab.classList.add('active');
+                })
+            })
+
+            var stepButtons = document.querySelectorAll('.step-button')
+            stepButtons.forEach(function (button) {
+                button.addEventListener('click', function (event) {
+                    currentStep = event.target.parentNode.parentNode
+                    if(currentStep.nextElementSibling ){
+                        currentStep.classList.remove('active')
+                        currentStep.nextElementSibling.classList.add('active')
+                    }
+                })
+            })
+
+
+            var nftThumbs = document.querySelectorAll('.nft-thumb')
+            nftThumbs.forEach(function (thumb) {
+                thumb.addEventListener('click', function (event) {
+                    event.target.parentNode.classList.toggle('selected')
+                })
+            })
+
+            var nftPreviews = document.querySelectorAll('.nft-preview')
+            nftPreviews.forEach(function (preview) {
+                preview.addEventListener('click', function (event) {
+                    currentStep = event.target.parentNode.parentNode.parentNode.parentNode
+                    if(currentStep.nextElementSibling ){
+                        currentStep.classList.remove('active')
+                        currentStep.nextElementSibling.classList.add('active')
+                    }
+                })
+            })
+
+
+        })
+    </script>
+</body>
+</html>

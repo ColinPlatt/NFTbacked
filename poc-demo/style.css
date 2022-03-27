@@ -1,0 +1,95 @@
+
+html,body{
+    margin:0;
+    padding: 0;
+    font-size: 24px;
+    font-family: Roboto;
+
+}
+
+img{
+    max-width: 100%;
+}
+
+#menu-wrapper{
+    position: fixed;
+    left: 40px;
+    top: 200px;
+}
+
+#menu-wrapper ul{
+    list-style: none;
+    text-align: center;
+    border: 1px solid black;
+    padding: 0;
+}
+
+#menu-wrapper li{
+    padding: 20px;
+    border-bottom: 1px solid black;
+}
+
+#menu-wrapper li:last-child{
+    border-bottom: none;
+}
+
+main{
+    padding: 100px;
+}
+.tab-pane .step{
+    display: none;
+    text-align: center;
+}
+.tab-pane .step.active{
+    display: block;
+}
+
+.nft-grid{
+    padding: 20px;
+    text-align: center;
+}
+.nft-thumb{
+    width: 150px;
+    display: inline-block;
+}
+
+.nft-thumb.selected{
+    border: 8px solid red;
+}
+
+.nft-preview{
+    width: 250px;
+    height: 300px;
+    display: inline-grid;
+}
+.nft-preview.on-auction {
+    border: 8px solid yellow;
+    box-sizing: content-box;
+}
+label{
+    display: block;
+}
+input{
+    text-align: center;
+}
+
+table{
+    border: 1px solid black;
+}
+
+td{
+    border: 1px solid #ccc;
+    padding: 10px;
+}
+ul {
+    text-align: left;
+}
+.legend{
+    background: #000000c2;
+    position: absolute;
+    color: white;
+    bottom: 10px;
+    left: 50%;
+    transform: translate(-50%, -10px);
+    padding: 20px;
+}
